@@ -162,6 +162,9 @@ button { cursor: pointer; }
   gap: 8px;
 }
 
+.aviso-consulta span { flex: 1 1 auto; min-width: 0; }
+.aviso-consulta .btn { flex: none; }
+
 .modo-consulta .fila { cursor: default; }
 .modo-consulta .fila:hover, .modo-consulta .fila:active { background: transparent; }
 

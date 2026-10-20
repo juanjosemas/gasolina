@@ -21,7 +21,7 @@ const MODO_CONSULTA = typeof location !== 'undefined' &&
   !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
 
 function soloConsulta() {
-  toast('Solo consulta: los cambios se hacen en el Excel y se publican desde el PC');
+  toast('Solo consulta: los cambios se hacen en el Excel del PC y se publican');
 }
 
 /* En la web, volver a leer la copia publicada del Excel sin recargar la página. */
@@ -1504,8 +1504,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.body.classList.add('modo-consulta');
     const aviso = document.getElementById('aviso-consulta');
     if (aviso) {
-      aviso.innerHTML = '<span>Solo consulta · los cambios se hacen en el Excel y se publican desde el PC</span>' +
-        '<button type="button" class="btn btn-suave btn-pequeno" data-accion="recargar-excel">Recargar</button>';
+      aviso.innerHTML = '<span>Solo consulta · para cambiar algo, en el Excel del PC</span>';
       aviso.hidden = false;
     }
   }
