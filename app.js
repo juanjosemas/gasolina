@@ -24,6 +24,17 @@ function soloConsulta() {
   toast('Solo consulta: los cambios se hacen en el Excel y se publican desde el PC');
 }
 
+/* En la web, volver a leer la copia publicada del Excel sin recargar la página. */
+function recargarDatosPublicados() {
+  if (!MODO_CONSULTA) return abrirRestaurar();
+  toast('Buscando datos nuevos...');
+  return refrescarDatosDelExcel().then(function (ok) {
+    estado = normalizar(copia(SEMILLA));
+    render();
+    toast(ok ? 'Datos del Excel: ' + ((EXCEL && EXCEL.generadoTexto) || '') : 'No se han podido leer los datos');
+  });
+}
+
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -738,6 +749,8 @@ function vistaAjustesConsulta() {
       '<p>Esta web muestra la copia publicada del Excel. Aquí no se puede cambiar nada: los datos se apuntan en el libro del PC y se suben con <strong>Publicar app en internet.bat</strong>.</p>' +
       (EXCEL ? '<p class="bloque-nota" style="margin:10px 0 0">Libro del ' + esc(EXCEL.generadoTexto || '—') +
         (inf.desplazamientos !== undefined ? ' · ' + inf.desplazamientos + ' desplaz. · ' + inf.pagos + ' pagos' : '') + '</p>' : '') +
+      '<button type="button" class="btn btn-suave btn-bloque" style="margin-top:12px" data-accion="recargar-excel">Recargar los datos del Excel</button>' +
+      '<p class="bloque-nota">Vuelve a leer la copia publicada. Si acabas de publicar, ya está aquí; si no, sigue igual.</p>' +
     '</section>';
 
   html += '<section class="tarjeta">' +
@@ -1456,6 +1469,7 @@ document.addEventListener('click', function (ev) {
   if (accion === 'nuevo-trabajador') return abrirFormTrabajador(null);
   if (accion === 'editar-trabajador') return abrirFormTrabajador(id);
   if (accion === 'borrar-trabajador') return borrarTrabajador(id);
+  if (accion === 'recargar-excel') return recargarDatosPublicados();
   if (accion === 'exportar-json') return exportarJSON();
   if (accion === 'exportar-csv') return csvResumen();
   if (accion === 'compartir') return compartirResumen();
@@ -1489,8 +1503,11 @@ document.addEventListener('DOMContentLoaded', function () {
   if (MODO_CONSULTA) {
     document.body.classList.add('modo-consulta');
     const aviso = document.getElementById('aviso-consulta');
-    if (aviso) aviso.textContent = 'Solo consulta · los cambios se hacen en el Excel y se publican desde el PC';
-    if (aviso) aviso.hidden = false;
+    if (aviso) {
+      aviso.innerHTML = '<span>Solo consulta · los cambios se hacen en el Excel y se publican desde el PC</span>' +
+        '<button type="button" class="btn btn-suave btn-pequeno" data-accion="recargar-excel">Recargar</button>';
+      aviso.hidden = false;
+    }
   }
 
   const fab = document.getElementById('fab');
