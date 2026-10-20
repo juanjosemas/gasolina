@@ -13,6 +13,17 @@ let EXCEL = (typeof window !== 'undefined' && window.DATOS_EXCEL && window.DATOS
 let SEMILLA = EXCEL ? EXCEL.datos : DATOS_INICIALES;
 const CLAVE_EXCEL = 'controlGasolinaApp.excel';
 
+/* La web publicada (GitHub Pages) es de solo consulta: los datos se cambian en
+   el Excel del PC y se publican con «Publicar app en internet.bat». En local
+   (file:// o localhost) se puede seguir editando como siempre. */
+const MODO_CONSULTA = typeof location !== 'undefined' &&
+  /^https?:$/.test(location.protocol) &&
+  !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+
+function soloConsulta() {
+  toast('Solo consulta: los cambios se hacen en el Excel y se publican desde el PC');
+}
+
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
@@ -161,6 +172,7 @@ function normalizar(d) {
 }
 
 function cargarEstado() {
+  if (MODO_CONSULTA) return normalizar(copia(SEMILLA));
   try {
     const bruto = localStorage.getItem(CLAVE);
     if (!bruto) {
@@ -179,6 +191,7 @@ function cargarEstado() {
 }
 
 function guardarEstado() {
+  if (MODO_CONSULTA) return;
   estado.actualizado = new Date().toISOString();
   try {
     localStorage.setItem(CLAVE, JSON.stringify(estado));
@@ -238,6 +251,11 @@ function marcarExcelCargado() {
 function pintarAvisoExcel() {
   const el = document.getElementById('aviso-excel');
   if (!el) return;
+  if (MODO_CONSULTA) {
+    el.hidden = true;
+    el.innerHTML = '';
+    return;
+  }
   if (!EXCEL || !excelPendiente()) {
     el.hidden = true;
     el.innerHTML = '';
@@ -382,6 +400,7 @@ function toast(texto) {
 }
 
 function abrirHoja(html) {
+  if (MODO_CONSULTA) return soloConsulta();
   const dlg = document.getElementById('hoja');
   dlg.innerHTML = '<div class="hoja-cuerpo">' + html + '</div>';
   if (!dlg.open) {
@@ -527,7 +546,8 @@ function vistaKm() {
 
   const viajes = desplazamientosOrdenados();
   if (!viajes.length) {
-    return html + '<div class="vacio"><strong>Todavía no hay desplazamientos</strong><p>Pulsa el botón + para apuntar el primero.</p></div>';
+    return html + '<div class="vacio"><strong>Todavía no hay desplazamientos</strong><p>' +
+      (MODO_CONSULTA ? 'Aparecerán al publicar los datos del Excel.' : 'Pulsa el botón + para apuntar el primero.') + '</p></div>';
   }
 
   const grupos = new Map();
@@ -552,8 +572,11 @@ function vistaKm() {
       const partes = String(d.fecha).split('-');
       const ajuste = (d.ajusteKm !== null && d.ajusteKm !== undefined && Math.abs(d.ajusteKm - kmBase(d)) > 0.001)
         ? '<span class="marca-ajuste">ajuste</span>' : '';
+      const abreFila = MODO_CONSULTA ? '<div class="fila">'
+        : '<button type="button" class="fila" data-accion="editar-viaje" data-id="' + esc(d.id) + '">';
+      const cierraFila = MODO_CONSULTA ? '</div>' : '</button>';
       html += '' +
-        '<button type="button" class="fila" data-accion="editar-viaje" data-id="' + esc(d.id) + '">' +
+        abreFila +
           '<div class="fila-fecha"><strong>' + esc(partes[2] || '') + '</strong><span>' + esc(MESES_CORTOS[(Number(partes[1]) || 1) - 1]) + '</span></div>' +
           '<div class="fila-cuerpo">' +
             '<div class="fila-titulo">' + esc(nombreTrabajador(d.trabajadorId)) + ajuste + '</div>' +
@@ -563,7 +586,7 @@ function vistaKm() {
             '<div class="fila-importe">' + num(kmBase(d)) + ' km</div>' +
             '<div class="fila-km">' + (importeViaje(d, t) > 0 ? eur(importeViaje(d, t)) : 'no cobra') + '</div>' +
           '</div>' +
-        '</button>';
+        cierraFila;
     });
 
     html += '</div></section>';
@@ -655,7 +678,8 @@ function vistaPagos() {
     '<p class="bloque-nota">El total es todo el gasto en gasolina. Para «ya le he dado» solo cuentan los repostajes asignados a un trabajador y posteriores al ' + fechaCorta(estado.ajustes.desde) + '.</p>';
 
   if (!gastos.length) {
-    return html + '<div class="vacio"><strong>Sin pagos apuntados</strong><p>Pulsa el botón + para añadir un repostaje o un pago.</p></div>';
+    return html + '<div class="vacio"><strong>Sin pagos apuntados</strong><p>' +
+      (MODO_CONSULTA ? 'Aparecerán al publicar los datos del Excel.' : 'Pulsa el botón + para añadir un repostaje o un pago.') + '</p></div>';
   }
 
   const grupos = new Map();
@@ -680,8 +704,11 @@ function vistaPagos() {
       if (g.proveedor) detalle.push(g.proveedor);
       if (g.litros) detalle.push(num(g.litros) + ' L');
       if (g.ticket) detalle.push('#' + g.ticket);
+      const abreFila = MODO_CONSULTA ? '<div class="fila">'
+        : '<button type="button" class="fila" data-accion="editar-pago" data-id="' + esc(g.id) + '">';
+      const cierraFila = MODO_CONSULTA ? '</div>' : '</button>';
       html += '' +
-        '<button type="button" class="fila" data-accion="editar-pago" data-id="' + esc(g.id) + '">' +
+        abreFila +
           '<div class="fila-fecha"><strong>' + esc(partes[2] || '') + '</strong><span>' + esc(MESES_CORTOS[(Number(partes[1]) || 1) - 1]) + '</span></div>' +
           '<div class="fila-cuerpo">' +
             '<div class="fila-titulo">' + esc(nombreTrabajador(g.trabajadorId)) + '</div>' +
@@ -691,7 +718,7 @@ function vistaPagos() {
             '<div class="fila-importe">' + eur(g.importe) + '</div>' +
             '<div class="fila-km">' + esc(g.vehiculo || '') + '</div>' +
           '</div>' +
-        '</button>';
+        cierraFila;
     });
 
     html += '</div></section>';
@@ -700,7 +727,77 @@ function vistaPagos() {
   return html;
 }
 
+/* Ajustes en la web publicada: todo de consulta, sin formularios ni botones de cambio. */
+function vistaAjustesConsulta() {
+  const datos = resumenPeriodo('todo');
+  const inf = (EXCEL && EXCEL.resumen) || {};
+
+  let html = '' +
+    '<section class="tarjeta">' +
+      '<h2>Solo consulta</h2>' +
+      '<p>Esta web muestra la copia publicada del Excel. Aquí no se puede cambiar nada: los datos se apuntan en el libro del PC y se suben con <strong>Publicar app en internet.bat</strong>.</p>' +
+      (EXCEL ? '<p class="bloque-nota" style="margin:10px 0 0">Libro del ' + esc(EXCEL.generadoTexto || '—') +
+        (inf.desplazamientos !== undefined ? ' · ' + inf.desplazamientos + ' desplaz. · ' + inf.pagos + ' pagos' : '') + '</p>' : '') +
+    '</section>';
+
+  html += '<section class="tarjeta">' +
+    '<h2>Cálculo</h2>' +
+    '<div class="estadisticas">' +
+      '<div class="estadistica"><strong>' + esc(num(estado.ajustes.tarifa)) + ' €</strong><span>por 100 km</span></div>' +
+      '<div class="estadistica"><strong>' + esc(num(estado.ajustes.umbral)) + ' km</strong><span>umbral</span></div>' +
+      '<div class="estadistica"><strong>' + esc(fechaCorta(estado.ajustes.desde)) + '</strong><span>pagos desde</span></div>' +
+    '</div>' +
+    '<p class="bloque-nota">Cobran los que viven a más de ' + esc(num(estado.ajustes.umbral)) + ' km.</p>' +
+    '</section>';
+
+  html += '<section class="tarjeta">' +
+    '<h2>Trabajadores</h2>' +
+    '<div id="lista-trabajadores-ajustes">';
+
+  if (!estado.trabajadores.length) {
+    html += '<p class="bloque-nota" style="margin:0 0 10px">Todavía no hay trabajadores.</p>';
+  } else {
+    estado.trabajadores.forEach(function (t) {
+      const c = cobra(t);
+      const chip = c === 'SI' ? '<span class="chip si">Cobra</span>'
+        : (c === 'NO' ? '<span class="chip no">No cobra</span>' : '<span class="chip sd">Sin datos</span>');
+      const nViajes = estado.desplazamientos.filter(function (d) { return d.trabajadorId === t.id; }).length;
+      html += '' +
+        '<div class="mini-fila">' +
+          '<div class="mini-fila-cuerpo">' +
+            '<div class="mini-fila-titulo">' + esc(t.nombre) + '</div>' +
+            '<div class="mini-fila-sub">' + (t.distancia === null ? 'Sin distancia' : num(t.distancia) + ' km de ida') + ' · ' + nViajes + ' desplaz.</div>' +
+          '</div>' +
+          chip +
+        '</div>';
+    });
+  }
+
+  html += '</div></section>';
+
+  html += '<section class="tarjeta">' +
+    '<h2>Datos</h2>' +
+    '<p>Puedes descargar una copia o el CSV para revisarlo en el ordenador. Para cambiar algo, en el Excel.</p>' +
+    '<div class="estadisticas">' +
+      '<div class="estadistica"><strong>' + estado.desplazamientos.length + '</strong><span>Desplaz.</span></div>' +
+      '<div class="estadistica"><strong>' + estado.gastos.length + '</strong><span>Pagos</span></div>' +
+      '<div class="estadistica"><strong>' + estado.trabajadores.length + '</strong><span>Trabaj.</span></div>' +
+    '</div>' +
+    '<div class="lista-botones">' +
+      '<button type="button" class="btn btn-suave btn-pequeno" data-accion="exportar-json">Exportar copia</button>' +
+      '<button type="button" class="btn btn-suave btn-pequeno" data-accion="exportar-csv">Exportar CSV</button>' +
+      '<button type="button" class="btn btn-suave btn-pequeno" data-accion="compartir">Compartir resumen</button>' +
+    '</div>' +
+    '<p class="bloque-nota">Total actual: ' + eur(datos.totales.aPagar) + ' a pagar · ' + eur(datos.totales.yaDado) + ' ya dados · ' + eur(datos.totales.diferencia) + ' de diferencia.</p>' +
+    '</section>';
+
+  html += '<p class="pie-app">Control Gasolina · solo consulta<br>Mismos cálculos que el Excel: km ida + vuelta, tarifa por 100 km y umbral de distancia.</p>';
+
+  return html;
+}
+
 function vistaAjustes() {
+  if (MODO_CONSULTA) return vistaAjustesConsulta();
   const datos = resumenPeriodo('todo');
   let html = '' +
     '<section class="tarjeta">' +
@@ -812,7 +909,7 @@ function render() {
 
   const fab = document.getElementById('fab');
   if (fab) {
-    fab.hidden = !(ui.vista === 'km' || ui.vista === 'pagos');
+    fab.hidden = MODO_CONSULTA || !(ui.vista === 'km' || ui.vista === 'pagos');
     fab.setAttribute('aria-label', ui.vista === 'km' ? 'Añadir desplazamiento' : 'Añadir pago');
   }
 
@@ -835,6 +932,7 @@ function render() {
 /* ---------------- formulario de desplazamiento ---------------- */
 
 function abrirFormViaje(id) {
+  if (MODO_CONSULTA) return soloConsulta();
   const editando = id ? estado.desplazamientos.find(function (d) { return d.id === id; }) : null;
   if (id && !editando) return;
 
@@ -970,6 +1068,7 @@ function conectarFormViaje(editando, datosIniciales) {
 /* ---------------- formulario de pago ---------------- */
 
 function abrirFormPago(id) {
+  if (MODO_CONSULTA) return soloConsulta();
   const editando = id ? estado.gastos.find(function (g) { return g.id === id; }) : null;
   if (id && !editando) return;
 
@@ -1069,6 +1168,7 @@ function abrirFormPago(id) {
 /* ---------------- formulario de trabajador ---------------- */
 
 function abrirFormTrabajador(id) {
+  if (MODO_CONSULTA) return soloConsulta();
   const editando = id ? estado.trabajadores.find(function (t) { return t.id === id; }) : null;
   if (id && !editando) return;
 
@@ -1150,6 +1250,7 @@ function abrirFormTrabajador(id) {
 /* ---------------- borrados ---------------- */
 
 function borrarViaje(id) {
+  if (MODO_CONSULTA) return soloConsulta();
   const d = estado.desplazamientos.find(function (x) { return x.id === id; });
   if (!d) return;
   if (!confirm('¿Borrar este desplazamiento del ' + fechaCorta(d.fecha) + '?')) return;
@@ -1161,6 +1262,7 @@ function borrarViaje(id) {
 }
 
 function borrarPago(id) {
+  if (MODO_CONSULTA) return soloConsulta();
   const g = estado.gastos.find(function (x) { return x.id === id; });
   if (!g) return;
   if (!confirm('¿Borrar este pago de ' + eur(g.importe) + ' del ' + fechaCorta(g.fecha) + '?')) return;
@@ -1172,6 +1274,7 @@ function borrarPago(id) {
 }
 
 function borrarTrabajador(id) {
+  if (MODO_CONSULTA) return soloConsulta();
   const t = trabajadorPorId(id);
   if (!t) return;
   const nViajes = estado.desplazamientos.filter(function (d) { return d.trabajadorId === id; }).length;
@@ -1192,6 +1295,7 @@ function borrarTrabajador(id) {
 
 function guardarAjustesDesdeForm(ev) {
   ev.preventDefault();
+  if (MODO_CONSULTA) return soloConsulta();
   const error = document.getElementById('error-ajustes');
   error.hidden = true;
 
@@ -1230,6 +1334,7 @@ function exportarJSON() {
 }
 
 function importarJSON(archivo) {
+  if (MODO_CONSULTA) return soloConsulta();
   const lector = new FileReader();
   lector.onload = function () {
     try {
@@ -1311,6 +1416,7 @@ function compartirResumen() {
 }
 
 function abrirRestaurar() {
+  if (MODO_CONSULTA) return soloConsulta();
   const cuando = EXCEL && EXCEL.generadoTexto ? ' del ' + EXCEL.generadoTexto : '';
   if (!confirm('Se borrarán los cambios que hayas hecho en la app y volverán los datos del Excel' + cuando + '. ¿Continuar?')) return;
   estado = normalizar(copia(SEMILLA));
@@ -1380,6 +1486,13 @@ document.addEventListener('submit', function (ev) {
 });
 
 document.addEventListener('DOMContentLoaded', function () {
+  if (MODO_CONSULTA) {
+    document.body.classList.add('modo-consulta');
+    const aviso = document.getElementById('aviso-consulta');
+    if (aviso) aviso.textContent = 'Solo consulta · los cambios se hacen en el Excel y se publican desde el PC';
+    if (aviso) aviso.hidden = false;
+  }
+
   const fab = document.getElementById('fab');
   if (fab) {
     fab.addEventListener('click', function () {

@@ -4,9 +4,14 @@ App web para llevar el control de los desplazamientos y los pagos de gasolina de
 
 **Ver la app:** <https://juanjosemas.github.io/Control-gasolina/>
 
-Funciona en el móvil y en cualquier ordenador, sin instalar nada. Cada dispositivo guarda sus
-propios apuntes en el navegador (`localStorage`), así que lo que se apunte en el móvil no aparece
-en el ordenador: para eso están las copias de seguridad (Ajustes → Exportar copia).
+Funciona en el móvil y en cualquier ordenador, sin instalar nada.
+
+**La web publicada es de solo consulta:** se puede mirar, filtrar por mes y exportar una copia,
+pero no se puede añadir, editar ni borrar nada, ni siquiera desde el PC del dueño. Los datos se
+cambian en el Excel y se suben con `Publicar app en internet.bat`.
+
+La versión abierta en local (`index.html` desde el PC) sigue siendo editable, y guarda sus apuntes
+en el navegador (`localStorage`) de ese dispositivo.
 
 ## Contenido
 
@@ -23,8 +28,8 @@ en el ordenador: para eso están las copias de seguridad (Ajustes → Exportar c
 2. Se ejecuta `Actualizar app movil.bat`: lee la hoja `DESPLAZAMIENTOS`, `Registro Gasolina` y
    `CONFIGURACIÓN`, y reescribe `datos.js`.
 3. Se publica con `Publicar app en internet.bat` (o respondiendo «S» al final del paso 2).
-4. Al abrir la web, si hay datos más nuevos que los que tenía el dispositivo, sale el aviso
-   **«Hay datos nuevos del Excel»** con el botón **Cargar**.
+4. Al recargar la web se ven esos datos. Como la web no guarda nada, siempre muestra la última
+   versión publicada: no hay que «cargar» nada.
 
 Este repositorio solo contiene la app: el libro de Excel, las copias y los `.bat` se quedan en el PC.
 
