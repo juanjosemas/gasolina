@@ -2,7 +2,7 @@
 
 App web para llevar el control de los desplazamientos y los pagos de gasolina de la empresa.
 
-**Ver la app:** <https://juanjosemas.github.io/Control-gasolina/>
+**Ver la app:** <https://juanjosemas.github.io/gasolina/>
 
 Funciona en el móvil y en cualquier ordenador, sin instalar nada.
 
