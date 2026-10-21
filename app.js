@@ -45,7 +45,7 @@ const fmtNum = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
 
 let estado;
 let almacenOK = true;
-let ui = { vista: 'resumen', periodo: 'todo', kmModo: 'lista', kmMedida: 'km' };
+let ui = { vista: 'resumen', periodo: 'todo', kmModo: 'lista', kmMedida: 'km', pagosModo: 'lista' };
 
 function copia(obj) {
   return JSON.parse(JSON.stringify(obj));
@@ -107,6 +107,11 @@ function mesLargo(clave) {
   const [a, m] = clave.split('-').map(Number);
   if (!a || !m) return clave;
   return MESES[m - 1] + ' ' + a;
+}
+
+function mesCorto(clave) {
+  const p = String(clave || '').split('-');
+  return MESES_CORTOS[(Number(p[1]) || 1) - 1] + ' ' + String(p[0]).slice(2);
 }
 
 function normalizar(d) {
@@ -629,10 +634,6 @@ function vistaKmMatriz() {
   const celda = function (n) {
     return n ? '<td>' + (medida === 'km' ? num(n) : eur(n)) + '</td>' : '<td class="cero">—</td>';
   };
-  const etiquetaMes = function (m) {
-    const p = m.split('-');
-    return MESES_CORTOS[(Number(p[1]) || 1) - 1] + ' ' + String(p[0]).slice(2);
-  };
 
   let html = '' +
     '<div class="segmentado" role="group" aria-label="Medida">' +
@@ -641,7 +642,7 @@ function vistaKmMatriz() {
     '</div>' +
     '<div class="tabla-envoltura"><table class="matriz"><thead><tr><th>Trabajador</th>';
 
-  meses.forEach(function (m) { html += '<th>' + esc(etiquetaMes(m)) + '</th>'; });
+  meses.forEach(function (m) { html += '<th>' + esc(mesCorto(m)) + '</th>'; });
   html += '<th>Total</th></tr></thead><tbody>';
 
   const totalesMes = {};
@@ -682,16 +683,24 @@ function vistaPagos() {
   const litros = gastos.reduce(function (s, g) { return s + (Number(g.litros) || 0); }, 0);
 
   let html = '' +
+    '<div class="segmentado" role="group" aria-label="Vista de pagos">' +
+      '<button type="button" data-accion="pagos-modo" data-valor="lista" aria-pressed="' + (ui.pagosModo === 'lista') + '">Lista</button>' +
+      '<button type="button" data-accion="pagos-modo" data-valor="mes" aria-pressed="' + (ui.pagosModo === 'mes') + '">Por mes</button>' +
+    '</div>' +
     '<div class="totales" style="grid-template-columns:1fr 1fr">' +
       '<div class="total"><span class="total-etiqueta">Repostajes</span><span class="total-valor">' + eur(total) + '</span></div>' +
       '<div class="total"><span class="total-etiqueta">Litros</span><span class="total-valor">' + num(litros) + ' L</span></div>' +
     '</div>' +
-    '<p class="bloque-nota">El total es todo el gasto en gasolina. Para «ya le he dado» solo cuentan los repostajes asignados a un trabajador y posteriores al ' + fechaCorta(estado.ajustes.desde) + '.</p>';
+    '<p class="bloque-nota">' + (ui.pagosModo === 'mes'
+      ? 'Totales de todos los meses arriba; abajo el detalle mes a mes, con el precio medio por litro.'
+      : 'El total es todo el gasto en gasolina. Para «ya le he dado» solo cuentan los repostajes asignados a un trabajador y posteriores al ' + fechaCorta(estado.ajustes.desde) + '.') + '</p>';
 
   if (!gastos.length) {
     return html + '<div class="vacio"><strong>Sin pagos apuntados</strong><p>' +
       (MODO_CONSULTA ? 'Aparecerán al publicar los datos del Excel.' : 'Pulsa el botón + para añadir un repostaje o un pago.') + '</p></div>';
   }
+
+  if (ui.pagosModo === 'mes') return html + vistaPagosMatriz(gastos);
 
   const grupos = new Map();
   gastos.forEach(function (g) {
@@ -702,10 +711,11 @@ function vistaPagos() {
 
   grupos.forEach(function (lista, clave) {
     const totalMes = lista.reduce(function (s, g) { return s + (Number(g.importe) || 0); }, 0);
+    const litrosMes = lista.reduce(function (s, g) { return s + (Number(g.litros) || 0); }, 0);
     html += '<section class="grupo-mes">' +
       '<div class="grupo-cab">' +
         '<span class="grupo-titulo">' + esc(mesLargo(clave)) + '</span>' +
-        '<span class="grupo-resumen">' + eur(totalMes) + '</span>' +
+        '<span class="grupo-resumen">' + eur(totalMes) + (litrosMes ? ' · ' + num(litrosMes) + ' L' : '') + '</span>' +
       '</div>' +
       '<div class="lista-filas">';
 
@@ -734,6 +744,56 @@ function vistaPagos() {
 
     html += '</div></section>';
   });
+
+  return html;
+}
+
+/* Repostajes y litros mes a mes, con el precio medio por litro. */
+function vistaPagosMatriz(gastos) {
+  const porMes = new Map();
+  gastos.forEach(function (g) {
+    const k = mesClave(g.fecha);
+    if (!porMes.has(k)) porMes.set(k, { importe: 0, litros: 0, n: 0 });
+    const m = porMes.get(k);
+    m.importe += Number(g.importe) || 0;
+    m.litros += Number(g.litros) || 0;
+    m.n += 1;
+  });
+
+  const meses = Array.from(porMes.keys()).sort().reverse();
+  const precio = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const precioL = function (importe, litros) {
+    return litros > 0 ? precio.format(importe / litros) : '—';
+  };
+
+  let totalImporte = 0;
+  let totalLitros = 0;
+  let totalN = 0;
+
+  let html = '<div class="tabla-envoltura"><table class="matriz">' +
+    '<thead><tr><th>Mes</th><th>Repostajes</th><th>Litros</th><th>€/L</th><th>Nº</th></tr></thead><tbody>';
+
+  meses.forEach(function (m) {
+    const d = porMes.get(m);
+    totalImporte += d.importe;
+    totalLitros += d.litros;
+    totalN += d.n;
+    html += '<tr>' +
+      '<td>' + esc(mesCorto(m)) + '</td>' +
+      '<td>' + eur(d.importe) + '</td>' +
+      '<td>' + (d.litros ? num(d.litros) : '<span class="cero">—</span>') + '</td>' +
+      '<td>' + esc(precioL(d.importe, d.litros)) + '</td>' +
+      '<td>' + d.n + '</td></tr>';
+  });
+
+  html += '</tbody><tfoot><tr>' +
+    '<td>Total</td>' +
+    '<td>' + eur(totalImporte) + '</td>' +
+    '<td>' + num(totalLitros) + '</td>' +
+    '<td>' + esc(precioL(totalImporte, totalLitros)) + '</td>' +
+    '<td>' + totalN + '</td></tr></tfoot></table></div>';
+
+  html += '<p class="bloque-nota">Repostajes y litros de cada mes. El €/L es el precio medio de ese mes. Desliza la tabla si hay muchos meses.</p>';
 
   return html;
 }
@@ -1459,6 +1519,7 @@ document.addEventListener('click', function (ev) {
 
   if (accion === 'cerrar-hoja') return cerrarHoja();
   if (accion === 'km-modo') { ui.kmModo = el.dataset.valor; render(); return; }
+  if (accion === 'pagos-modo') { ui.pagosModo = el.dataset.valor; render(); return; }
   if (accion === 'km-medida') { ui.kmMedida = el.dataset.valor; render(); return; }
   if (accion === 'nuevo-viaje') return abrirFormViaje(null);
   if (accion === 'editar-viaje') return abrirFormViaje(id);
